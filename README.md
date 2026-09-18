@@ -1,5 +1,7 @@
 # LTFS-WinFsp
 
+> **Current direction (2026-09-18): retain the installed HPE mount layer and optimize its read path. WinFsp replacement is paused at the user's request.** See [HPE read-performance audit](docs/HPE-READ-PERFORMANCE.md). Installed HPE 3.0 and audited 3.4.2 source are not a verified binary-compatible pair; no installed component has been replaced. The WinFsp design below is historical/experimental, not the active plan.
+
 A minimal LTFS drive-letter application for Windows 10/11, targeting unified reads and writes using an existing open-source LTFS engine and WinFsp.
 
 The project exists to replace the legacy FUSE4Win/UMFSDK drive-letter layer used by older vendor LTFS packages. The first goal is safe and fast access to existing LTFS tapes through a normal local Windows drive letter.

@@ -1,5 +1,7 @@
 # Architecture
 
+> Active direction: retain HPE's existing FUSE4Win/UMFSDK mount layer; investigate changes inside its open-source read path. WinFsp integration below is paused. See [current architecture and compatibility findings](HPE-READ-PERFORMANCE.md).
+
 ## Current target
 
 Windows applications -> WinFsp FUSE adapter -> HPE LTFS operations/core/scheduler -> upstream Windows tape backend -> LTO drive.

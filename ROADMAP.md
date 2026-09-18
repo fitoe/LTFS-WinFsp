@@ -1,5 +1,11 @@
 # Roadmap
 
+## Active priority — preserve HPE mounting, optimize reads
+
+The user has paused WinFsp replacement. Establish compatibility with the installed HPE 3.0 components, measure the existing read path, and make a narrowly scoped read optimization while preserving writes and drive-letter usage. See [audit and deployment gates](docs/HPE-READ-PERFORMANCE.md). No DLL substitution until ABI compatibility and read/write correctness are verified.
+
+The WinFsp integration and prototype plans below are retained as historical work, not current priorities.
+
 ## Superseding direction — upstream engine integration
 
 The phases below record the read-only prototype's original roadmap. They are not the current production plan. Do not extend the bespoke reader into a write engine.
