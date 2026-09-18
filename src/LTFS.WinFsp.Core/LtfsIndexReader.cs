@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
+using System.Text;
 
 namespace LTFS.WinFsp.Core;
 
@@ -59,7 +60,7 @@ public static class LtfsIndexReader
             }
             return new(name, Time(element), children.AsReadOnly());
         }
-        return new(directory.Element("name")?.Value ?? "LTFS", ParseDirectory(directory, true, 0));
+        return new(directory.Element("name") is { } label ? DecodeName(label) : "LTFS", ParseDirectory(directory, true, 0));
     }
 
     private static string Required(XElement element, string name) => element.Element(name)?.Value
@@ -83,8 +84,7 @@ public static class LtfsIndexReader
     private static string Name(XElement element)
     {
         var node = element.Element("name") ?? throw new InvalidDataException("Missing name.");
-        if (node.Attribute("percentencoded") != null) throw new InvalidDataException("Encoded names not supported yet.");
-        var value = node.Value;
+        var value = DecodeName(node);
         if (string.IsNullOrEmpty(value) || value.Length > 255 || value is "." or ".." || value.EndsWith('.') || value.EndsWith(' ') ||
             value.Any(c => c < 32 || "\\/:*?\"<>|".Contains(c))) throw new InvalidDataException("Unsafe Windows file name.");
         var stem = value.Split('.')[0];
@@ -92,5 +92,32 @@ public static class LtfsIndexReader
             System.Text.RegularExpressions.Regex.IsMatch(stem, "^(COM|LPT)[1-9]$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
             throw new InvalidDataException("Reserved Windows name.");
         return value;
+    }
+
+    private static string DecodeName(XElement node)
+    {
+        string? encoded = node.Attribute("percentencoded")?.Value;
+        if (encoded == null || encoded == "false") return node.Value;
+        if (encoded != "true") throw new InvalidDataException("Invalid percentencoded flag.");
+        var utf8 = new UTF8Encoding(false, true);
+        using var bytes = new MemoryStream();
+        var text = node.Value;
+        for (int i = 0; i < text.Length;)
+        {
+            if (text[i] == '%')
+            {
+                if (i + 2 >= text.Length || !byte.TryParse(text.AsSpan(i + 1, 2), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var value))
+                    throw new InvalidDataException("Malformed percent-encoded name.");
+                bytes.WriteByte(value); i += 3;
+            }
+            else
+            {
+                int end = text.IndexOf('%', i);
+                if (end < 0) end = text.Length;
+                bytes.Write(utf8.GetBytes(text[i..end])); i = end;
+            }
+        }
+        try { return utf8.GetString(bytes.ToArray()); }
+        catch (DecoderFallbackException ex) { throw new InvalidDataException("Invalid UTF-8 in encoded name.", ex); }
     }
 }

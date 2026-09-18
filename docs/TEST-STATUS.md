@@ -8,7 +8,7 @@ Implemented:
 - WinFsp local mount with deterministic sample files.
 - Serialized block reads, single-block cache, and sequential position reuse.
 - Bounded XML index parser, explicit logical-to-physical partition mapping.
-- Rejection of sparse/overlapping extents, unsupported encoded names, symlinks and Windows name collisions.
+- Strict UTF-8 percent-encoded name decoding; rejection of sparse/overlapping extents, symlinks and Windows name collisions.
 - Core fault/cancellation tests and Windows mount smoke test.
 
 Implemented but awaiting hardware validation:
@@ -19,7 +19,9 @@ Implemented but awaiting hardware validation:
 - Wiring the selected real index into the filesystem adapter.
 - Isolated mount process with five-minute startup timeout, cancellation, ten-second graceful stop and a bounded process-termination attempt.
 
-Still pending: hardware throughput, Windows tape-driver block numbering/filemark behavior, media removal/reconnect validation, and optional support for sparse files/encoded names. Fixed-block drivers, non-two-partition tapes and unsupported formats are rejected explicitly. Nothing automatically changes tape modes or repairs media.
+Still pending: hardware throughput, Windows tape-driver block numbering/filemark behavior, media removal/reconnect validation, and optional support for sparse files. Fixed-block drivers, non-two-partition tapes and unsupported formats are rejected explicitly. Nothing automatically changes tape modes or repairs media.
+
+Offline coverage: 38 xUnit cases; independent worker tests for startup cancellation, occupied drive letters, stdin EOF/parent loss and abrupt user-mode worker termination. UI automation covers mount, unmount, remount and close-while-mounted. This does not simulate kernel-driver hangs.
 
 Device discovery uses QueryDosDevice without opening the hardware. A listed name does not imply the drive is powered on. Native partition numbers are mapped from verified labels; they are not guessed from LTFS partition letters. The backend uses Windows tape APIs, not raw SCSI commands. Windows requires a read/write-capable handle for tape controls, although this implementation exposes no write operations. Blocking calls run in a separate worker process. Terminating that process does not guarantee a blocked kernel driver releases the device immediately; the UI reports that failure rather than promising recovery.
 

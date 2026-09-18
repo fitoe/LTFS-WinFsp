@@ -37,4 +37,30 @@ public sealed class LtfsIndexReaderTests
         => Assert.Throws<InvalidDataException>(() => Read(Index.Replace(from, to)));
     [Fact]
     public void RejectsDtd() => Assert.Throws<XmlException>(() => Read("<!DOCTYPE ltfsindex [<!ENTITY e SYSTEM 'file:///secret'>]>" + Index));
+
+    [Fact]
+    public void DecodesUtf8AndPercentOnlyOnce()
+    {
+        var xml = Index.Replace("<name>example.bin</name>", "<name percentencoded=\"true\">%E6%96%87%E4%BB%B6%252f.bin</name>");
+        Assert.Equal("文件%2f.bin", Assert.Single(Read(xml).Root.Children).Name);
+    }
+
+    [Theory]
+    [InlineData("%2e%2e")]
+    [InlineData("a%2fb")]
+    [InlineData("a%5cb")]
+    [InlineData("%FF.bin")]
+    [InlineData("%E6%96.bin")]
+    [InlineData("bad%GG")]
+    [InlineData("bad%")]
+    [InlineData("%43ON")]
+    public void RejectsInvalidOrUnsafeDecodedNames(string name)
+        => Assert.Throws<InvalidDataException>(() => Read(Index.Replace("<name>example.bin</name>", $"<name percentencoded=\"true\">{name}</name>")));
+
+    [Fact]
+    public void FalseEncodingFlagPreservesLiteralPercent()
+    {
+        var xml = Index.Replace("<name>example.bin</name>", "<name percentencoded=\"false\">%20.bin</name>");
+        Assert.Equal("%20.bin", Assert.Single(Read(xml).Root.Children).Name);
+    }
 }

@@ -38,6 +38,19 @@ for ($round = 0; $round -lt 2; $round++) {
         catch [System.UnauthorizedAccessException] { $denied = $true }
         catch [System.IO.IOException] { $denied = $true }
         if (!$denied) { throw 'Write was not rejected.' }
+        foreach ($operation in @(
+            { [IO.File]::WriteAllText("$Drive\samples\sample.bin", 'overwrite') },
+            { [IO.File]::Delete("$Drive\samples\sample.bin") },
+            { [IO.File]::Move("$Drive\samples\sample.bin", "$Drive\samples\renamed.bin") },
+            { [IO.Directory]::CreateDirectory("$Drive\new-directory") | Out-Null }
+        )) {
+            $denied = $false
+            try { & $operation }
+            catch [System.UnauthorizedAccessException] { $denied = $true }
+            catch [System.IO.IOException] { $denied = $true }
+            if (!$denied) { throw 'Mutation was not rejected.' }
+        }
+        if ((Get-Item "$Drive\samples\sample.bin").Length -ne 16777216) { throw 'Original file changed.' }
     }
     finally {
         if (!$p.HasExited) {
