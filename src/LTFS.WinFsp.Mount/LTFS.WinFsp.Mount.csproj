@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LTFS.WinFsp.Core\LTFS.WinFsp.Core.csproj" />
+    <Reference Include="winfsp-msil"><HintPath>$(WinFspAssembly)</HintPath></Reference>
+  </ItemGroup>
+  <Target Name="RequireWinFsp" BeforeTargets="ResolveReferences" Condition="!Exists('$(WinFspAssembly)')">
+    <Error Text="Set -p:WinFspAssembly=full-path-to-installed-winfsp-msil.dll" />
+  </Target>
+</Project>

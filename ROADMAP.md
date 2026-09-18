@@ -29,7 +29,9 @@
 ## Phase 4 — usable Windows product
 
 - Signed installer and reproducible builds.
-- CLI, tray UI, logs and diagnostics bundle.
+- One desktop window: tape drive, drive letter, mount, unmount, and status.
 - Hardware compatibility matrix and benchmarks.
 
 Write support is intentionally not scheduled until the read-only implementation has extensive hardware coverage.
+
+Scope decision: no tray, background service, automatic mounting, file browser, copy manager, or extra user tools. Simulation and automated tests remain internal development infrastructure. The initial UI must clearly identify simulated media until a real tape backend is implemented.
