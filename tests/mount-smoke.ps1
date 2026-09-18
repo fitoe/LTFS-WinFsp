@@ -1,4 +1,4 @@
-param([string]$Drive = 'L:')
+param([string]$Drive = 'L:', [switch]$DesktopWorker)
 $ErrorActionPreference = 'Stop'
 if ($Drive -notmatch '^[D-Zd-z]:$') { throw 'Use a drive letter D: through Z:.' }
 if (Test-Path "$Drive\") { throw 'Drive already in use.' }
@@ -6,8 +6,13 @@ $projectRoot = Split-Path $PSScriptRoot
 $dll = Join-Path $projectRoot 'src\LTFS.WinFsp.Mount\bin\Release\net8.0-windows\LTFS.WinFsp.Mount.dll'
 for ($round = 0; $round -lt 2; $round++) {
     $p = [Diagnostics.Process]::new()
-    $p.StartInfo.FileName = 'dotnet'
-    $p.StartInfo.Arguments = '"' + $dll + '" simulate ' + $Drive
+    if ($DesktopWorker) {
+        $p.StartInfo.FileName = Join-Path $projectRoot 'src\LTFS.WinFsp.Desktop\bin\Release\net8.0-windows\LTFS.WinFsp.Desktop.exe'
+        $p.StartInfo.Arguments = '--worker simulate ' + $Drive
+    } else {
+        $p.StartInfo.FileName = 'dotnet'
+        $p.StartInfo.Arguments = '"' + $dll + '" simulate ' + $Drive
+    }
     $p.StartInfo.UseShellExecute = $false
     $p.StartInfo.CreateNoWindow = $true
     $p.StartInfo.RedirectStandardInput = $true

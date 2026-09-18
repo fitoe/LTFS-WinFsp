@@ -4,34 +4,40 @@ using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using FileInfo = Fsp.Interop.FileInfo;
 
-Console.Error.WriteLine("WinFsp - Windows File System Proxy, Copyright (C) Bill Zissimopoulos. https://github.com/winfsp/winfsp");
-if (args.Length != 2 || args[0] != "simulate" || !System.Text.RegularExpressions.Regex.IsMatch(args[1], "^[D-Zd-z]:$"))
-{
-    Console.Error.WriteLine("Usage: LTFS.WinFsp.Mount simulate L:");
-    return 2;
-}
-if (Directory.Exists(args[1] + "\\")) { Console.Error.WriteLine("Drive is already in use."); return 2; }
-using var fs = new SimulationFileSystem();
-using var host = new FileSystemHost(fs);
-int status = host.Mount(args[1], null, true, 0);
-if (status < 0) { Console.Error.WriteLine($"Mount failed: 0x{status:X8}"); return 1; }
-Console.WriteLine($"Mounted simulated read-only volume at {args[1]}. Press Enter to unmount.");
-using var stop = new ManualResetEventSlim();
-Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.Set(); };
-_ = Task.Run(() => { Console.ReadLine(); stop.Set(); });
-stop.Wait();
-host.Unmount();
-return 0;
+return await MountWorker.RunAsync(args);
 
 public sealed class SimulationFileSystem : FileSystemBase, IDisposable
 {
-    private readonly SimulatedTape tape;
+    private readonly IReadOnlyTape tape;
     private readonly TapeFileReader reader;
     private readonly Dictionary<string, VolumeEntry> entries = new(StringComparer.OrdinalIgnoreCase);
     private readonly byte[] security;
+    private readonly string volumeLabel = "LTFS Simulation";
+    private readonly ulong volumeSize = 16 * 1024 * 1024 + 100000;
+    private readonly bool simulated = true;
     private const int NotFound = unchecked((int)0xC0000034);
     private const int ReadOnly = unchecked((int)0xC00000A2);
     private const int IoError = unchecked((int)0xC0000185);
+    public SimulationFileSystem(IReadOnlyTape tape, ReadOnlyVolume volume, int blockSize)
+    {
+        this.tape = tape;
+        reader = new TapeFileReader(tape, blockSize);
+        simulated = false;
+        volumeLabel = volume.Label.Length > 32 ? volume.Label[..32] : volume.Label;
+        ulong total = 0;
+        void Add(string path, VolumeEntry entry)
+        {
+            if (!entries.TryAdd(path, entry)) throw new InvalidDataException("Conflicting file path.");
+            if (entry is VolumeDirectory directory)
+                foreach (var child in directory.Children) Add(path == "\\" ? path + child.Name : path + "\\" + child.Name, child);
+            else if (entry is VolumeFile file) total = checked(total + (ulong)file.Length);
+        }
+        Add("\\", volume.Root);
+        volumeSize = total;
+        var descriptor = new RawSecurityDescriptor("O:BAG:BAD:P(A;;FRFX;;;WD)");
+        security = new byte[descriptor.BinaryLength];
+        descriptor.GetBinaryForm(security, 0);
+    }
     public SimulationFileSystem()
     {
         const int blockSize = 65536;
@@ -62,7 +68,7 @@ public sealed class SimulationFileSystem : FileSystemBase, IDisposable
         host.SectorSize = 512;
         host.SectorsPerAllocationUnit = 8;
         host.MaxComponentLength = 255;
-        host.FileSystemName = "LTFS-SIM";
+        host.FileSystemName = simulated ? "LTFS-SIM" : "LTFS";
         host.CasePreservedNames = true;
         host.CaseSensitiveSearch = false;
         host.UnicodeOnDisk = true;
@@ -77,7 +83,7 @@ public sealed class SimulationFileSystem : FileSystemBase, IDisposable
             CreationTime = time, LastAccessTime = time, LastWriteTime = time, ChangeTime = time, HardLinks = 1 };
     }
     public override int GetVolumeInfo(out Fsp.Interop.VolumeInfo info)
-    { info = default; info.TotalSize = 16 * 1024 * 1024 + 100000; info.SetVolumeLabel("LTFS Simulation"); return 0; }
+    { info = default; info.TotalSize = volumeSize; info.SetVolumeLabel(volumeLabel); return 0; }
     public override int GetSecurityByName(string name, out uint attributes, ref byte[] descriptor)
     {
         attributes = 0;

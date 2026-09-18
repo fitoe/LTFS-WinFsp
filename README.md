@@ -4,7 +4,7 @@ A modern, read-only-first LTFS mount for Windows 10/11, backed by WinFsp.
 
 The project exists to replace the legacy FUSE4Win/UMFSDK drive-letter layer used by older vendor LTFS packages. The first goal is safe and fast access to existing LTFS tapes through a normal local Windows drive letter.
 
-> Status: working simulated read-only mount and desktop prototype. Physical tape mounting is not implemented yet. See [test status](docs/TEST-STATUS.md).
+> Status: working simulated read-only mount; experimental physical tape path implemented but not hardware-validated. See [test status](docs/TEST-STATUS.md).
 
 ## Goals
 
@@ -61,7 +61,7 @@ Build the Windows UI using the installed WinFsp runtime:
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-The solution above contains platform-independent core tests. The build script additionally builds the desktop and mount projects. The current UI deliberately identifies its data as simulated.
+The solution above contains platform-independent core tests. The build script additionally tests Windows discovery/metadata loading and builds the desktop and mount projects. The UI distinguishes simulated and real tape devices. Mounting runs in a separate process with cancellation and bounded shutdown waits.
 
 ## Licensing and clean-room policy
 

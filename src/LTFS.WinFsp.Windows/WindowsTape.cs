@@ -12,7 +12,7 @@ namespace LTFS.WinFsp.Windows;
 /// must isolate this backend before exposing physical mounts in the UI.
 /// Partition numbers here are native Windows tape numbers, not LTFS label IDs.
 /// </summary>
-public sealed class WindowsTape : IReadOnlyTape
+public sealed class WindowsTape : ITapeVolumeTransport
 {
     private readonly SafeFileHandle handle;
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -105,7 +105,24 @@ public sealed class WindowsTape : IReadOnlyTape
     }
 
     public ValueTask<bool> CheckReadyAsync(CancellationToken token = default) => ExecuteAsync(() =>
-    { Check(Native.GetTapeStatus(handle), "Check tape readiness"); return true; }, token);
+    {
+        Check(Native.GetTapeStatus(handle), "Check tape readiness");
+        uint size = (uint)Marshal.SizeOf<MediaParameters>();
+        Check(Native.GetTapeParameters(handle, 0, ref size, out var media), "Read tape media parameters");
+        if (media.PartitionCount != 2) throw new IOException("Expected a two-partition LTFS tape.");
+        if (media.BlockSize != 0) throw new IOException("Tape driver is in fixed-block mode; variable-block reading is required. No device settings were changed.");
+        return true;
+    }, token);
+
+    public async ValueTask SeekEndAsync(byte partition, CancellationToken token = default)
+    {
+        await ExecuteAsync(() => { Check(Native.SetTapePosition(handle, 4, partition, 0, 0, false), "Seek end of data"); return true; }, token);
+    }
+
+    public async ValueTask SpaceFilemarksAsync(int count, CancellationToken token = default)
+    {
+        await ExecuteAsync(() => { Check(Native.SetTapePosition(handle, 6, 0, unchecked((uint)count), count < 0 ? uint.MaxValue : 0, false), "Space filemarks"); return true; }, token);
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -131,6 +148,17 @@ public sealed class WindowsTape : IReadOnlyTape
         internal static extern uint SetTapePosition(SafeFileHandle tape, uint method, uint partition, uint low, uint high, [MarshalAs(UnmanagedType.Bool)] bool immediate);
         [DllImport("kernel32.dll")]
         internal static extern uint GetTapeStatus(SafeFileHandle tape);
+        [DllImport("kernel32.dll")]
+        internal static extern uint GetTapeParameters(SafeFileHandle tape, uint operation, ref uint size, out MediaParameters parameters);
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MediaParameters
+    {
+        public long Capacity;
+        public long Remaining;
+        public uint BlockSize;
+        public uint PartitionCount;
+        public byte WriteProtected;
     }
 }
 
