@@ -1,5 +1,20 @@
 # Roadmap
 
+## Superseding direction — upstream engine integration
+
+The phases below record the read-only prototype's original roadmap. They are not the current production plan. Do not extend the bespoke reader into a write engine.
+
+1. Pin licensed HPE LTFS source and audit proprietary FUSE hooks (done); compile a WinFsp FUSE callback declaration probe (done).
+2. Build the actual upstream core, Windows tape plugin, scheduler and dependencies (36/39 source units now compile, including all core units); link a native worker without FUSE4Win/UMFSDK (pending).
+3. Adapt device ownership, ABI types, startup errors and durable unmount; test native failure paths without hardware (pending).
+4. Validate real read-only operation and performance on HPE LTO-6 / QLogic FC (pending).
+5. Enable upstream writes on disposable test media; verify hashes after remount, index durability, capacity errors and recovery (pending).
+6. Distribute a minimal UI: device, drive letter, read-only checkbox, mount/unmount and status. No additional end-user features.
+
+Both reads and writes must use the same engine instance and drive letter. See [integration audit](docs/UPSTREAM-INTEGRATION.md).
+
+## Historical prototype roadmap
+
 ## Phase 0 — safe foundation
 
 - Define transport-independent tape and filesystem interfaces.

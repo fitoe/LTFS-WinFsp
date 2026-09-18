@@ -1,15 +1,15 @@
 # LTFS-WinFsp
 
-A modern, read-only-first LTFS mount for Windows 10/11, backed by WinFsp.
+A minimal LTFS drive-letter application for Windows 10/11, targeting unified reads and writes using an existing open-source LTFS engine and WinFsp.
 
 The project exists to replace the legacy FUSE4Win/UMFSDK drive-letter layer used by older vendor LTFS packages. The first goal is safe and fast access to existing LTFS tapes through a normal local Windows drive letter.
 
-> Status: working simulated read-only mount; experimental physical tape path implemented but not hardware-validated. See [test status](docs/TEST-STATUS.md).
+> Direction update: reuse HPE LTFS core, write operations and scheduler through WinFsp. Do not implement a second write engine. Preview5 and the implementation described below remain an experimental read-only baseline, not the final architecture. Native integration and hardware validation are incomplete. See [integration plan](docs/UPSTREAM-INTEGRATION.md) and [prototype test status](docs/TEST-STATUS.md).
 
 ## Goals
 
 - Mount an LTFS cartridge as a local drive such as `L:`.
-- Keep the first production release strictly read-only.
+- Reuse upstream reads and writes in one engine; validate read-only access before enabling writes on disposable test media.
 - Preserve streaming performance for large files.
 - Coalesce small/random Windows reads into tape-friendly sequential reads.
 - Handle tape removal, device power loss and unmount without hanging processes.
@@ -18,7 +18,7 @@ The project exists to replace the legacy FUSE4Win/UMFSDK drive-letter layer used
 
 ## Product scope
 
-The product is a simple read-only mounting window. No tray application, background service, automatic mounting, file browser, copy manager, or general-purpose command-line product is planned. Simulator and command-line harnesses are development tools only.
+The product is a simple mounting window: device, drive letter, read-only checkbox, mount/unmount and status. Reads and writes share one drive letter and engine instance. No tray application, background service, automatic mounting, file browser, copy manager, or general-purpose command-line product is planned. Simulator and command-line harnesses are development tools only.
 
 WinFsp provides the Windows filesystem driver and interface; it does not implement LTFS parsing or tape reads. Use the installed official WinFsp runtime, with no need for its optional developer tools at runtime.
 
@@ -29,16 +29,16 @@ Windows applications / Explorer
               |
          WinFsp adapter
               |
- read-only LTFS virtual filesystem
+ HPE LTFS FUSE operations + core
               |
- index cache + sequential read planner
+ upstream scheduler + index handling
               |
        Windows SCSI backend
               |
           LTO tape drive
 ```
 
-The core API is independent of WinFsp and the tape transport. This lets us test directory traversal and reads using a simulated tape before hardware tests.
+This is the target architecture. The existing .NET parser/reader and simulator remain an experimental read-only baseline, not the final read/write engine. Keep the UI and process isolation, but adapt shutdown for upstream index synchronization and explicit commit-error reporting.
 
 See [docs/architecture.md](docs/architecture.md) and [ROADMAP.md](ROADMAP.md).
 
@@ -48,7 +48,7 @@ Requirements:
 
 - Windows 10 or Windows 11 x64
 - .NET 8 SDK
-- WinFsp 2.x (required once the mount adapter lands)
+- WinFsp 2.x
 
 ```powershell
 dotnet build LTFS.WinFsp.sln
@@ -65,7 +65,7 @@ The solution above contains platform-independent core tests. The build script ad
 
 ## Licensing and clean-room policy
 
-New code in this repository is MIT licensed. Do not copy code from projects that do not provide an explicit license.
+Original code in this repository is MIT licensed. Upstream-derived patches under `native/upstream/patches` are LGPL-2.1-only; see that directory's notices and `COPYING.LIB`. Do not copy code from projects that do not provide an explicit license.
 
 HPE LTFS source is available separately under LGPL-2.1. If code derived from it is introduced, it must be isolated, clearly attributed, and distributed under the compatible LGPL terms. HPE binary components such as UMFSDK, FUSE4Win and vendor tape drivers are not part of this repository.
 
@@ -76,7 +76,7 @@ WinFsp - Windows File System Proxy, Copyright (C) Bill Zissimopoulos.
 
 ## Safety
 
-Read-only is a design constraint, not merely a UI option. Write, format, erase, rollback and index-update commands are outside the first release scope.
+Preview5 remains read-only. Future writes must use upstream LTFS semantics and pass disposable-media durability tests before release. Format, erase and rollback tools are outside the product scope. A read-only checkbox alone does not prove that engine startup/shutdown makes no media modifications.
 
 ## Contributing
 

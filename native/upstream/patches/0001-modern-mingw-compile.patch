@@ -1,0 +1,167 @@
+From: LTFS-WinFsp contributors
+Subject: [PATCH] Add scoped modern MinGW compilation branch
+License: LGPL-2.1-only (upstream-derived patch)
+Base: nix-community/hpe-ltfs f909474d71deb0e6a7abc71fd47c16a78b9c1eb0, ltfs/ directory
+
+Compile-enablement only; not a complete WinFsp port. No tape algorithms changed.
+The legacy tools depending on tm_zone are not part of this build target.
+
+diff --git a/src/libltfs/arch/win/win_util.c b/src/libltfs/arch/win/win_util.c
+index 0a56f3c..569d5e5 100644
+--- a/src/libltfs/arch/win/win_util.c
++++ b/src/libltfs/arch/win/win_util.c
+@@ -208,6 +208,7 @@ struct tm *get_win32_localtime(const ltfs_time_t *timep)
+ 	buffer_localtime.tm_wday  = t->tm_wday;
+ 	buffer_localtime.tm_yday  = t->tm_yday;
+ 	buffer_localtime.tm_isdst = t->tm_isdst;
++#ifndef LTFS_WINFSP_BUILD
+ #if 1
+ 	buffer_localtime.tm_zone  = "   ";
+ #else
+@@ -218,6 +219,7 @@ struct tm *get_win32_localtime(const ltfs_time_t *timep)
+ 	}
+ #endif
+ 
++#endif /* legacy tm_zone extension; not part of the modern CRT ABI */
+ 	return &buffer_localtime;
+ }
+ 
+@@ -239,12 +241,14 @@ struct tm *get_win32_gmtime(const ltfs_time_t *timep)
+ 	buffer_gmtime.tm_wday  = t->tm_wday;
+ 	buffer_gmtime.tm_yday  = t->tm_yday;
+ 	buffer_gmtime.tm_isdst = t->tm_isdst;
++#ifndef LTFS_WINFSP_BUILD
+ #if 1
+ 	buffer_gmtime.tm_zone  = "   ";
+ #else
+ 	buffer_gmtime.tm_zone  = _tzname[0];
+ #endif
+ 
++#endif /* legacy tm_zone extension; not part of the modern CRT ABI */
+ 	return &buffer_gmtime;
+ }
+ 
+diff --git a/src/libltfs/arch/win/win_util.h b/src/libltfs/arch/win/win_util.h
+index 6716493..f409ec4 100644
+--- a/src/libltfs/arch/win/win_util.h
++++ b/src/libltfs/arch/win/win_util.h
+@@ -57,12 +57,12 @@
+ extern "C" {
+ #endif
+ 
+-#if defined(_INC_STAT) || defined(_STAT_H_) || defined(_TYPES_H_)  || defined(_INC_TYPES)
++#if !defined(LTFS_WINFSP_BUILD) && (defined(_INC_STAT) || defined(_STAT_H_) || defined(_TYPES_H_) || defined(_INC_TYPES))
+ #error win_util.h must be included first!!!!!
+ #endif
+ 
+ #include <sys/types.h> /* Used in struct stat definition */
+-#ifndef HPE_mingw_BUILD
++#if !defined(HPE_mingw_BUILD) || defined(LTFS_WINFSP_BUILD)
+ #include <sys/stat.h>
+ #endif /* HPE_mingw_BUILD */
+ #include <unistd.h>    /* Definitions of uid_t and gid_t */
+@@ -82,12 +82,14 @@ extern "C" {
+ #define WIN32_LEAN_AND_MEAN
+ 
+ /* linux unique status defined in sys/stat.h */
++#ifndef LTFS_WINFSP_BUILD
+ #define S_IRGRP 0
+ #define S_IROTH 0
+ #define S_IRWXG 0
+ #define S_IRWXO 0
+ #define S_IWGRP 0
+ #define S_IWOTH 0
++#endif
+ 
+ /* The error numbers not defined in MinGW */
+ #ifndef EIDRM
+@@ -227,7 +229,11 @@ struct ltfs_timespec {
+ 	long		tv_nsec;
+ };
+ 
+-#ifndef _TM_DEFINED
++#ifdef LTFS_WINFSP_BUILD
++/* Modern CRT owns struct tm. Do not replace a runtime-library ABI type. */
++#include <time.h>
++#endif
++#if !defined(_TM_DEFINED) && !defined(LTFS_WINFSP_BUILD)
+ #define _TM_DEFINED
+ struct tm
+ {
+@@ -267,7 +273,11 @@ struct _stat_libltfs
+ {
+ 	_dev_t  st_dev;         /* Equivalent to drive number 0=A 1=B ... */
+ 	_ino_t  st_ino;         /* Always zero ? */
++#ifdef LTFS_WINFSP_BUILD
++	mode_t st_mode;
++#else
+ 	_mode_t st_mode;        /* See above constants */
++#endif
+ 	short   st_nlink;       /* Number of links. */
+ 	short   st_uid;         /* User: Maybe significant on NT ? */
+ 	short   st_gid;         /* Group: Ditto */
+@@ -307,7 +317,7 @@ struct stat_libltfs
+ 	blkcnt_t  st_blocks;
+ };
+ 
+-#ifndef _STAT_DEFINED
++#if !defined(_STAT_DEFINED) && !defined(LTFS_WINFSP_BUILD)
+ #define _STAT_DEFINED
+ /* 
+  * OSR
+diff --git a/src/libltfs/ltfs_thread.h b/src/libltfs/ltfs_thread.h
+index c395b4d..305e2ae 100644
+--- a/src/libltfs/ltfs_thread.h
++++ b/src/libltfs/ltfs_thread.h
+@@ -197,6 +197,12 @@ static inline ltfs_thread_t ltfs_thread_self(void)
+ 
+ #ifdef __APPLE__
+ extern uint32_t ltfs_get_thread_id(void);
++#elif defined(LTFS_WINFSP_BUILD)
++/* Only used for diagnostics; independent of the pthread_t representation. */
++static inline uint32_t ltfs_get_thread_id(void)
++{
++	return (uint32_t)GetCurrentThreadId();
++}
+ #elif defined(HPE_mingw_BUILD)
+ static inline void* ltfs_get_thread_id(void)
+ {
+diff --git a/src/libltfs/tape.c b/src/libltfs/tape.c
+index 46bf81e..6178c75 100644
+--- a/src/libltfs/tape.c
++++ b/src/libltfs/tape.c
+@@ -88,7 +88,7 @@
+ #include <ICU/unicode/ustring.h>
+ #else
+ /* Added to fix Windows compilation */
+-#ifndef HPE_mingw_BUILD
++#if !defined(HPE_mingw_BUILD) || defined(LTFS_WINFSP_BUILD)
+ #include <unicode/utf8.h>
+ #include <unicode/ustring.h>
+ #endif
+diff --git a/src/ltfs_fuse.h b/src/ltfs_fuse.h
+index f6e5fb0..75b8469 100644
+--- a/src/ltfs_fuse.h
++++ b/src/ltfs_fuse.h
+@@ -74,12 +74,21 @@ extern "C" {
+ struct ltfs_fuse_data {
+ 	bool first_parsing_pass;       /**< Just looking for a config file? If so, don't print help */
+ 
++#ifdef LTFS_WINFSP_BUILD
++	struct fuse_statvfs fs_stats;  /**< WinFsp boundary representation */
++#else
+ 	struct statvfs fs_stats;       /**< Filesystem stats */
++#endif
+ 
+ 	pid_t pid_orig;                /**< Process ID of LTFS at launched (before background exec) */
+ 
+ 	bool perm_override;            /**< Did the user ask for any permissions override? */
++#ifdef LTFS_WINFSP_BUILD
++	fuse_uid_t mount_uid;
++	fuse_gid_t mount_gid;
++#else
+ 	uid_t mount_uid;               /**< Real UID of the mounting user */
+ 	gid_t mount_gid;               /**< Real GID of the mounting user */
++#endif
+ 	mode_t file_mode;              /**< All files are assigned this mode, maybe minus write bits */
+ 	mode_t dir_mode;               /**< All directories are assigned this mode */

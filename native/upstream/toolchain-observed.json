@@ -1,0 +1,20 @@
+{
+  "recordedOn": "2026-09-18",
+  "purpose": "Observed build-audit environment; not a complete dependency lock",
+  "target": "x86_64-w64-mingw32 / UCRT64",
+  "msys2Base": {
+    "release": "2026-06-11",
+    "archive": "msys2-base-x86_64-20260611.tar.xz",
+    "sha256": "a2d047e8ee213c3c6a49a8de427eb1069df12207c0422ff1b3cbb5c905c34221",
+    "verification": "Matched official GitHub release asset digest before extracting; packages subsequently upgraded with signature verification"
+  },
+  "packages": {
+    "mingw-w64-ucrt-x86_64-gcc": "16.2.0-3",
+    "mingw-w64-ucrt-x86_64-crt": "14.0.0.r375.g9c1abbbf5-1",
+    "mingw-w64-ucrt-x86_64-headers": "14.0.0.r375.g9c1abbbf5-1",
+    "mingw-w64-ucrt-x86_64-winpthreads": "14.0.0.r375.g9c1abbbf5-1",
+    "mingw-w64-ucrt-x86_64-icu": "78.3-4",
+    "mingw-w64-ucrt-x86_64-libxml2": "2.15.4-1",
+    "mingw-w64-ucrt-x86_64-binutils": "2.47-3"
+  }
+}

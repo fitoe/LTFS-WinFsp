@@ -1,0 +1,4 @@
+# Unified-diff context whitespace is significant; preserve patch text as LF.
+patches/*.patch text eol=lf -whitespace
+# Keep the upstream license verbatim, including its final blank lines.
+COPYING.LIB -whitespace

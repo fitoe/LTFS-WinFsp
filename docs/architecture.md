@@ -1,5 +1,17 @@
 # Architecture
 
+## Current target
+
+Windows applications -> WinFsp FUSE adapter -> HPE LTFS operations/core/scheduler -> upstream Windows tape backend -> LTO drive.
+
+One native worker owns one tape session for both reading and writing. Our code handles Windows integration, readiness/error reporting and a minimal UI; upstream owns tape layout, allocation, writes and index commits. No split read/write engines.
+
+Retain existing UI/process isolation, but do not reuse the read-only prototype's forced-kill timeout as successful writable unmount. A failed commit must remain visible; process exit is not proof of durable data. Audit startup/shutdown and MAM/index changes before promising no media modifications in read-only mode.
+
+The .NET parser, reader and simulator remain experimental infrastructure. Their tests do not validate the upstream engine or hardware. See [integration audit](UPSTREAM-INTEGRATION.md).
+
+## Historical read-only prototype
+
 LTFS-WinFsp separates Windows filesystem behavior from tape mechanics.
 
 ## Components
