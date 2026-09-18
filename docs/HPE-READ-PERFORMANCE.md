@@ -34,6 +34,8 @@ Preserve existing write ordering and read-after-write semantics. Any future read
 
 ## Next gates
 
+Source comparison and a no-install-change first experiment are now available: [read-path comparison](READ-PATH-COMPARISON.md) and [mounted-file request-size probe](../tools/HpeReadProbe/README.md). The probe has local tests but has not been run on a tape. It can measure the existing installation without waiting for a compatible rebuild.
+
 1. Obtain matching 3.0 source/dependency headers or otherwise establish the exact ABI. The additional source mirrors inspected currently identify as 3.5.0 (`leavelet/ltfs-hp`) and 3.6.0 (`mikee47/HPE-LTFS`); neither establishes compatibility with 3.0.
 2. Build an isolated diagnostic variant that preserves the original mount interface, without installing it. Record request size/offset, callback duration, backend READ and LOCATE counts/duration, and inter-request gaps; aggregate rather than synchronously log every block.
 3. When hardware is on, compare the same large file on the original HPE drive letter and direct extraction, with consistent cache/position conditions and hashes. Separately identify application gaps, engine overhead and device-command latency.
