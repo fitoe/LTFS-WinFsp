@@ -10,6 +10,8 @@ Push-Location $PSScriptRoot
 try {
     dotnet test LTFS.WinFsp.sln -c Release
     if ($LASTEXITCODE) { throw 'Core tests failed.' }
+    dotnet test tests/LTFS.WinFsp.Windows.Tests -c Release
+    if ($LASTEXITCODE) { throw 'Windows tests failed.' }
     $arguments = @('publish', 'src/LTFS.WinFsp.Desktop', '-c', 'Release', "-p:WinFspAssembly=$WinFspAssembly")
     if ($Output) { $arguments += @('-o', $Output) }
     & dotnet @arguments

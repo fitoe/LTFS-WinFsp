@@ -11,3 +11,4 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - run: dotnet test LTFS.WinFsp.sln -c Release
+      - run: dotnet test tests/LTFS.WinFsp.Windows.Tests -c Release

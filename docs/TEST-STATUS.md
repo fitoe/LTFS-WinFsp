@@ -13,10 +13,12 @@ Implemented:
 
 Not implemented yet:
 
-- Windows SCSI transport and sense-data decoding.
+- Hardware validation of the Windows tape API backend (exclusive open, status, position, locate and block reads are implemented but not executed on hardware).
 - Reading the LTFS label and finding the latest committed index on tape.
 - Wiring a parsed real index into the filesystem adapter.
 - Hardware timeouts, offline/reconnect handling, and hardware read verification.
+
+Device discovery uses QueryDosDevice without opening the hardware. A listed name does not imply the drive is powered on. Native partition numbers must be mapped from verified labels; they must not be guessed from LTFS partition letters. The backend uses Windows tape APIs, not raw SCSI commands. Windows requires a read/write-capable handle for tape controls, although this implementation exposes no write operations. Its blocking native calls require process isolation before production UI integration; cancellation currently takes effect before/after an outstanding driver call, not during it.
 
 The XML parser currently accepts a conservative subset. It fails explicitly instead of silently presenting unsupported media incorrectly. The byte-array fixtures and simulator are synthetic, not user tape data.
 
